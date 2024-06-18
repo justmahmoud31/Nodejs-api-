@@ -1,53 +1,66 @@
 const http = require("http");
-let users = [
-  { Id: "1", Name: "ahmed", age: 18, followers: 404 },
-  { Id: "2", Name: "ahmed", age: 18, followers: 404 },
-  { Id: "3", Name: "ahmed", age: 18, followers: 404 },
-  { Id: "4", Name: "ahmed", age: 18, followers: 404 },
-];
+const fs = require('fs');
+let users = JSON.parse(fs.readFileSync('./users.json'));
 const Server = http.createServer((req, res) => {
-  const sendResponse=(code,message)=>{
+  res.setHeader('content-type', 'application/json');
+  const sendResponse = (code, message) => {
     res.statusCode = code;
     res.end(JSON.stringify(message));
   }
-  if (req.url == "/users" && req.method == "GET") {
-    sendResponse(200,users);
-  } else if (req.url == "/addUser" && req.method == "POST") {
+  if (req.url === "/users" && req.method === "GET") {
+    sendResponse(200, users);
+  } else if (req.url === "/addUser" && req.method === "POST") {
     req.on("data", (chunk) => {
       let user = JSON.parse(chunk);
       user.Id = users.length + 1;
-      users.push(JSON.parse(user));
-      sendResponse(201,res.end(JSON.stringify({"Message":"User added Sucssefuly"})));
+      users.push(user);
+      fs.writeFile('./users.json', JSON.stringify(users, null, 2), 'utf-8', (err) => {
+        if (err) {
+          sendResponse(500, { Message: "Error adding user" });
+        } else {
+          sendResponse(201, { Message: "User added successfully" });
+        }
+      });
     });
-    res.end(JSON.stringify({ Message: "Success" }));
-  } else if (req.url.startsWith("/updateUser/") && req.method == "PUT") {
-    let UserId = Number(req.url.split("/")[2]);
-    let index = users.findIndex((user) => user.Id == UserId);
+  } else if (req.url.startsWith("/updateUser/") && req.method === "PUT") {
+    let userId = Number(req.url.split("/")[2]);
+    let index = users.findIndex((user) => user.Id === userId);
     req.on("data", (chunk) => {
-      if (index != -1) {
-        sendResponse(201,res.end(JSON.stringify({"Message":"User Updated Sucssefuly"})));
-        let user = JSON.stringify(chunk);
-        users[index].Name = user.Name;
-        users[index].age = user.age;
-        users[index].followers = user.followers;
-      } else if (index == -1) {
-        sendResponse(404,res.end(JSON.stringify({"Message":"User Not Found"})));
+      if (index !== -1) {
+        let updatedUser = JSON.parse(chunk);
+        users[index] = updatedUser;
+        fs.writeFile('./users.json', JSON.stringify(users, null, 2), 'utf-8', (err) => {
+          if (err) {
+            sendResponse(500, { Message: "Error updating user" });
+          } else {
+            sendResponse(200, { Message: "User updated successfully" });
+          }
+        });
+      } else {
+        sendResponse(404, { Message: "User not found" });
       }
     });
-  } else if (req.url.startsWith("/deleteUser/") && req.method == "DELETE") {
-    let UserId = Number(req.url.split("/")[2]);
-    let index = users.findIndex((user) => user.Id == UserId);
-    if(index == -1){
-      sendResponse(404,res.end(JSON.stringify({"Message":"User Not Found"})));
+  } else if (req.url.startsWith("/deleteUser/") && req.method === "DELETE") {
+    let userId = Number(req.url.split("/")[2]);
+    let index = users.findIndex((user) => user.Id === userId);
+
+    if (index === -1) {
+      sendResponse(404, { Message: "User not found" });
+    } else {
+      users.splice(index, 1);
+      fs.writeFile('./users.json', JSON.stringify(users, null, 2), 'utf-8', (err) => {
+        if (err) {
+          sendResponse(500, { Message: "Error deleting user" });
+        } else {
+          sendResponse(200, { Message: "User deleted successfully" });
+        }
+      });
     }
-    else {
-      users.splice(index,1);
-      sendResponse(200,res.end(JSON.stringify({"Message":"User Deleted Succefully"})));
-    }
-  }else {
-    sendResponse(404,res.end(JSON.stringify({"Message":"User Not Found"})));
+  } else {
+    sendResponse(404, { Message: "Not found" });
   }
 });
 Server.listen(3000, () => {
-  console.log("Server Is Running");
+  console.log("Server is running");
 });
+
